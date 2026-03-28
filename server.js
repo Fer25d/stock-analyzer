@@ -136,11 +136,54 @@ const INDICES_SYMS = [
   { sym: '000001.SS', label: 'Shanghai (China)' },
 ];
 
+const TV_INDICES = [
+  {tv:'FOREXCOM:SPXUSD', yf:'%5EGSPC',   label:'S&P 500'},
+  {tv:'FOREXCOM:NSXUSD', yf:'%5EIXIC',   label:'Nasdaq'},
+  {tv:'FOREXCOM:DJI',    yf:'%5EDJI',    label:'Dow Jones'},
+  {tv:'INDEX:RUT',       yf:'%5ERUT',    label:'Russell 2000'},
+  {tv:'CBOE:VIX',        yf:'%5EVIX',    label:'VIX'},
+  {tv:'XETR:DAX',        yf:'%5EGDAXI',  label:'DAX'},
+  {tv:'TVC:GOLD',        yf:'GC%3DF',    label:'Oro'},
+  {tv:'TVC:USOIL',       yf:'CL%3DF',    label:'Petróleo WTI'},
+  {tv:'TVC:DXY',         yf:'DX-Y.NYB',  label:'USD Index'},
+  {tv:'TVC:US10Y',       yf:'%5ETNX',    label:'10Y Treasury'},
+  {tv:'BINANCE:BTCUSDT', yf:'BTC-USD',   label:'Bitcoin'},
+  {tv:'TVC:NI225',       yf:'%5EN225',   label:'Nikkei 225'},
+  {tv:'INDEX:KOSPI',     yf:'%5EKS11',   label:'KOSPI (Corea)'},
+  {tv:'SSE:000001',      yf:'000001.SS', label:'Shanghai (China)'},
+];
+
 app.get('/api/indices', async (req, res) => {
   try {
-    const results = await Promise.all(INDICES_SYMS.map(async idx => {
+    // Try TradingView Scanner first — one request for all indices
+    const tvResp = await fetch('https://scanner.tradingview.com/global/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        symbols: { tickers: TV_INDICES.map(i => i.tv) },
+        columns: ['close', 'change_abs', 'change']
+      })
+    });
+    if (tvResp.ok) {
+      const tvData = await tvResp.json();
+      const map = {};
+      (tvData.data || []).forEach(r => { if (r.s && r.d) map[r.s] = r.d; });
+      const valid = TV_INDICES.map(idx => {
+        const d = map[idx.tv];
+        if (!d || d[0] == null) return null;
+        return { label: idx.label, lc: d[0], pch: d[2] || 0 };
+      }).filter(Boolean);
+      if (valid.length >= TV_INDICES.length * 0.7) {
+        return res.json(valid);
+      }
+    }
+  } catch {}
+
+  // Fallback: Yahoo Finance
+  try {
+    const results = await Promise.all(TV_INDICES.map(async idx => {
       try {
-        const url  = `https://query1.finance.yahoo.com/v8/finance/chart/${idx.sym}?interval=1d&range=5d`;
+        const url  = `https://query1.finance.yahoo.com/v8/finance/chart/${idx.yf}?interval=1d&range=5d`;
         const r    = await fetch(url, { headers: BROWSER_HEADERS });
         const data = await r.json();
         const result = data?.chart?.result?.[0];
@@ -154,8 +197,7 @@ app.get('/api/indices', async (req, res) => {
           lc = closes[closes.length - 1];
           pc = closes[closes.length - 2];
         }
-        const pch = ((lc - pc) / pc) * 100;
-        return { label: idx.label, lc, pch };
+        return { label: idx.label, lc, pch: ((lc - pc) / pc) * 100 };
       } catch { return null; }
     }));
     res.json(results.filter(Boolean));
@@ -168,11 +210,20 @@ app.get('/api/indices', async (req, res) => {
 // /api/proxy?url=...
 // Proxy genérico para cualquier URL
 // ────────────────────────────────────────────
-app.get('/api/proxy', async (req, res) => {
+app.use(express.json());
+
+app.all('/api/proxy', async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'url requerida' });
   try {
-    const r    = await fetch(decodeURIComponent(url), { headers: BROWSER_HEADERS });
+    const options = {
+      method:  req.method === 'POST' ? 'POST' : 'GET',
+      headers: { ...BROWSER_HEADERS, 'Content-Type': 'application/json' },
+    };
+    if (req.method === 'POST' && req.body) {
+      options.body = JSON.stringify(req.body);
+    }
+    const r    = await fetch(decodeURIComponent(url), options);
     const text = await r.text();
     res.setHeader('Content-Type', r.headers.get('content-type') || 'application/json');
     res.send(text);
