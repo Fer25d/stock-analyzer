@@ -92,8 +92,8 @@ app.get('/api/news', async (req, res) => {
 
 // /api/indices  — TradingView primero, Yahoo fallback
 const TV_INDICES = [
-  {tv:'FOREXCOM:SPXUSD',yf:'%5EGSPC',label:'S&P 500'},
-  {tv:'FOREXCOM:NSXUSD',yf:'%5ENDX',label:'Nasdaq 100'},
+  {tv:'OANDA:SPX500USD',yf:'%5EGSPC',label:'S&P 500'},
+  {tv:'OANDA:NaS100USD',yf:'%5ENDX',label:'Nasdaq 100'},
   {tv:'FOREXCOM:DJI',yf:'%5EDJI',label:'Dow Jones'},
   {tv:'INDEX:RUT',yf:'%5ERUT',label:'Russell 2000'},
   {tv:'CBOE:VIX',yf:'%5EVIX',label:'VIX'},
