@@ -10,8 +10,7 @@ To install the Stock Analyzer, follow these steps:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/Fer25d/stock-analyzer.git
-   cd stock-analyzer
+   
    ```
 2. Install the required dependencies:
    ```bash
