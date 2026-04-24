@@ -1,0 +1,20 @@
+# Node.js
+node_modules/
+
+# Environment variables
+.env
+
+# macOS
+.DS_Store
+
+# Logs
+npm-debug.log
+
+# Yarn
+.yarn-integrity
+
+# others
+*.log
+*.swp
+*~
+*.tmp
