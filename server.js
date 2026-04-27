@@ -110,20 +110,51 @@ app.all('/api/proxy', async (req, res) => {
 
 // ── /api/indices  TradingView → Yahoo fallback ───────────────
 const TV_INDICES = [
-  { tv:'FOREXCOM:SPXUSD', yf:'%5EGSPC',   label:'S&P 500' },
-  { tv:'FOREXCOM:NSXUSD', yf:'%5ENDX',    label:'Nasdaq 100' },
-  { tv:'FOREXCOM:DJI',    yf:'%5EDJI',    label:'Dow Jones' },
-  { tv:'INDEX:RUT',       yf:'%5ERUT',    label:'Russell 2000' },
-  { tv:'CBOE:VIX',        yf:'%5EVIX',    label:'VIX' },
-  { tv:'XETR:DAX',        yf:'%5EGDAXI',  label:'DAX' },
-  { tv:'TVC:GOLD',        yf:'GC%3DF',    label:'Oro' },
-  { tv:'TVC:USOIL',       yf:'CL%3DF',    label:'Petróleo WTI' },
-  { tv:'TVC:DXY',         yf:'DX-Y.NYB',  label:'USD Index' },
-  { tv:'TVC:US10Y',       yf:'%5ETNX',    label:'10Y Treasury' },
-  { tv:'BINANCE:BTCUSDT', yf:'BTC-USD',   label:'Bitcoin' },
-  { tv:'TVC:NI225',       yf:'%5EN225',   label:'Nikkei 225' },
-  { tv:'INDEX:KOSPI',     yf:'%5EKS11',   label:'KOSPI (Corea)' },
-  { tv:'SSE:000001',      yf:'000001.SS', label:'Shanghai (China)' },
+  {tv:'OANDA:SPX500USD', yf:'%5EGSPC', label:'S&P 500'},
+  {tv:'OANDA:NAS100USD', yf:'%5EIXIC', label:'Nasdaq'},
+  {tv:'OANDA:US30USD', yf:'%5EDJI', label:'Dow Jones'},
+  {tv:'INDEX:RUT', yf:'%5ERUT', label:'Russell 2000'},
+  {tv:'CBOE:VIX', yf:'%5EVIX', label:'VIX'},
+  {tv:'TVC:US10Y', yf:'%5ETNX', label:'10Y Treasury'},
+  {tv:'NASDAQ:NDX', yf:'%5ENDX', label:'Nasdaq 100'},
+  {tv:'XETR:DAX', yf:'%5EGDAXI', label:'DAX'},
+  {tv:'EURONEXT:CAC40', yf:'%5EFCHI', label:'CAC 40'},
+  {tv:'LSE:UKX', yf:'%5EFTSE', label:'FTSE 100'},
+  {tv:'EURONEXT:AEX', yf:'%5EAEX', label:'AEX (Países Bajos)'},
+  {tv:'MIL:FTSEMIB', yf:'FTSEMIB.MI', label:'FTSE MIB (Italia)'},
+  {tv:'IBEX:IBC', yf:'%5EIBEX', label:'IBEX 35 (España)'},
+  {tv:'EURONEXT:BEL20', yf:'%5EBFX', label:'BEL 20 (Bélgica)'},
+  {tv:'SIX:SMI', yf:'%5ESSMI', label:'SMI (Suiza)'},
+  {tv:'TVC:NI225', yf:'%5EN225', label:'Nikkei 225'},
+  {tv:'INDEX:KOSPI', yf:'%5EKS11', label:'KOSPI (Corea)'},
+  {tv:'SSE:000001', yf:'000001.SS', label:'Shanghai'},
+  {tv:'HKEX:HSI', yf:'%5EHSI', label:'Hang Seng'},
+  {tv:'ASX:XJO', yf:'%5EAXJO', label:'ASX 200 (Australia)'},
+  {tv:'NSE:NIFTY50', yf:'%5ENSEI', label:'Nifty 50 (India)'},
+  {tv:'TWSE:TAIEX', yf:'%5ETWII', label:'Taiwan (TAIEX)'},
+  {tv:'TVC:GOLD', yf:'GC%3DF', label:'Oro'},
+  {tv:'TVC:SILVER', yf:'SI%3DF', label:'Plata'},
+  {tv:'TVC:USOIL', yf:'CL%3DF', label:'Petróleo WTI'},
+  {tv:'TVC:UKOIL', yf:'BZ%3DF', label:'Brent'},
+  {tv:'TVC:NATGAS', yf:'NG%3DF', label:'Gas Natural'},
+  {tv:'TVC:COPPER', yf:'HG%3DF', label:'Cobre'},
+  {tv:'CBOT:ZW1!', yf:'ZW%3DF', label:'Trigo'},
+  {tv:'NYMEX:PL1!', yf:'PL%3DF', label:'Platino'},
+  {tv:'TVC:DXY', yf:'DX-Y.NYB', label:'USD Index'},
+  {tv:'FX:EURUSD', yf:'EURUSD%3DX', label:'EUR/USD'},
+  {tv:'FX:GBPUSD', yf:'GBPUSD%3DX', label:'GBP/USD'},
+  {tv:'FX:USDJPY', yf:'USDJPY%3DX', label:'USD/JPY'},
+  {tv:'FX:USDCAD', yf:'USDCAD%3DX', label:'USD/CAD'},
+  {tv:'FX:AUDUSD', yf:'AUDUSD%3DX', label:'AUD/USD'},
+  {tv:'FX:USDCHF', yf:'USDCHF%3DX', label:'USD/CHF'},
+  {tv:'FX:USDBRL', yf:'USDBRL%3DX', label:'USD/BRL'},
+  {tv:'BINANCE:BTCUSDT', yf:'BTC-USD', label:'Bitcoin'},
+  {tv:'BINANCE:ETHUSDT', yf:'ETH-USD', label:'Ethereum'},
+  {tv:'BINANCE:SOLUSDT', yf:'SOL-USD', label:'Solana'},
+  {tv:'BINANCE:BNBUSDT', yf:'BNB-USD', label:'BNB'},
+  {tv:'BINANCE:XRPUSDT', yf:'XRP-USD', label:'XRP'},
+  {tv:'BINANCE:ADAUSDT', yf:'ADA-USD', label:'Cardano'},
+  {tv:'BINANCE:DOGEUSDT', yf:'DOGE-USD', label:'Dogecoin'}
 ];
 
 let _idxCache = null;
@@ -147,7 +178,7 @@ async function fetchTVIndices() {
     if (!d || d[0] == null) return null;
     return { label: idx.label, lc: d[0], pch: d[2] || 0, src: 'tv' };
   }).filter(Boolean);
-  if (valid.length < TV_INDICES.length * 0.5) throw new Error('TV: datos insuficientes');
+  if (valid.length < 5) throw new Error('TV: datos insuficientes');
   return valid;
 }
 
