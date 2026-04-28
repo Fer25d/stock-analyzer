@@ -4,7 +4,6 @@ const rateLimit  = require('express-rate-limit');
 const compression = require('compression');
 const app        = express();
 
-// ── Config centralizada ──────────────────────────────────────
 const CONFIG = {
   PORT:            process.env.PORT            || 3000,
   NODE_ENV:        process.env.NODE_ENV        || 'development',
@@ -13,8 +12,6 @@ const CONFIG = {
 };
 
 const isProd = CONFIG.NODE_ENV === 'production';
-
-// ── Dominios permitidos en /api/proxy ───────────────────────
 const ALLOWED_DOMAINS = [
   'finance.yahoo.com',
   'query1.finance.yahoo.com',
@@ -34,13 +31,9 @@ const isValidProxyUrl = (url) => {
     return ALLOWED_DOMAINS.some(d => parsed.hostname === d || parsed.hostname.endsWith('.' + d));
   } catch { return false; }
 };
-
-// ── Validaciones ─────────────────────────────────────────────
 const VALID_RANGES    = ['1d','5d','1mo','3mo','6mo','1y','2y','5y','max'];
 const VALID_INTERVALS = ['1m','5m','15m','30m','60m','90m','1d','1wk','1mo'];
 const validateSymbol  = (s) => s && /^[A-Z0-9.\-\^%=]{1,20}$/.test(s);
-
-// ── Middleware global ─────────────────────────────────────────
 app.use(compression());
 
 app.use((req, res, next) => {
@@ -53,21 +46,17 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// Rate limiting — 200 req / 15min por IP
 app.use('/api/', rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
   message: { error: 'Demasiadas solicitudes, intentá en unos minutos.' }
 }));
-
-// ── Utilidades ───────────────────────────────────────────────
 const BH = {
   'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36',
   'Accept':          'application/json, text/plain, */*',
   'Accept-Language': 'en-US,en;q=0.9',
   'Cache-Control':   'no-cache',
 };
-
 const fetchWithTimeout = async (url, options = {}) => {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), CONFIG.REQUEST_TIMEOUT);
@@ -80,11 +69,8 @@ const fetchWithTimeout = async (url, options = {}) => {
     throw e;
   }
 };
-
 const errRes = (res, status, msg) =>
   res.status(status).json({ error: isProd ? 'Error del servidor' : msg, ts: Date.now() });
-
-// ── /api/proxy  GET o POST genérico (con whitelist) ──────────
 app.all('/api/proxy', async (req, res) => {
   const { url } = req.query;
   if (!url)               return errRes(res, 400, 'url requerida');
@@ -107,12 +93,10 @@ app.all('/api/proxy', async (req, res) => {
     errRes(res, status, e.message);
   }
 });
-
-// ── /api/indices  TradingView → Yahoo fallback ───────────────
 const TV_INDICES = [
-  {tv:'OANDA:SPX500USD', yf:'%5EGSPC', label:'S&P 500'},
-  {tv:'OANDA:NAS100USD', yf:'%5EIXIC', label:'Nasdaq'},
-  {tv:'OANDA:US30USD', yf:'%5EDJI', label:'Dow Jones'},
+  {tv:'FOREXCOM:SPXUSD', yf:'%5EGSPC', label:'S&P 500'},
+  {tv:'FOREXCOM:NSXUSD', yf:'%5EIXIC', label:'Nasdaq'},
+  {tv:'FOREXCOM:DJI',    yf:'%5EDJI',  label:'Dow Jones'},
   {tv:'INDEX:RUT', yf:'%5ERUT', label:'Russell 2000'},
   {tv:'CBOE:VIX', yf:'%5EVIX', label:'VIX'},
   {tv:'TVC:US10Y', yf:'%5ETNX', label:'10Y Treasury'},
@@ -159,7 +143,6 @@ const TV_INDICES = [
 
 let _idxCache = null;
 let _idxCacheTime = 0;
-
 async function fetchTVIndices() {
   const r = await fetchWithTimeout('https://scanner.tradingview.com/global/scan', {
     method: 'POST',
@@ -181,7 +164,6 @@ async function fetchTVIndices() {
   if (valid.length < 5) throw new Error('TV: datos insuficientes');
   return valid;
 }
-
 async function fetchYFIndices() {
   const results = await Promise.allSettled(TV_INDICES.map(async idx => {
     const r = await fetchWithTimeout(
@@ -203,7 +185,6 @@ async function fetchYFIndices() {
   }));
   return results.filter(r => r.status === 'fulfilled' && r.value).map(r => r.value);
 }
-
 app.get('/api/indices', async (req, res) => {
   try {
     const now = Date.now();
@@ -222,8 +203,6 @@ app.get('/api/indices', async (req, res) => {
     res.json(data);
   } catch (e) { errRes(res, 503, e.message); }
 });
-
-// ── /api/quote?sym=AAPL ──────────────────────────────────────
 app.get('/api/quote', async (req, res) => {
   const { sym } = req.query;
   if (!sym || !validateSymbol(sym.toUpperCase())) return errRes(res, 400, 'Símbolo inválido');
@@ -243,8 +222,6 @@ app.get('/api/quote', async (req, res) => {
     errRes(res, e.name === 'AbortError' ? 504 : 500, e.message);
   }
 });
-
-// ── /api/candles?sym=AAPL&range=6mo&interval=1d ──────────────
 app.get('/api/candles', async (req, res) => {
   const { sym, range = '6mo', interval = '1d' } = req.query;
   if (!sym || !validateSymbol(sym.toUpperCase())) return errRes(res, 400, 'Símbolo inválido');
@@ -268,8 +245,6 @@ app.get('/api/candles', async (req, res) => {
     errRes(res, e.name === 'AbortError' ? 504 : 500, e.message);
   }
 });
-
-// ── /api/finviz?sym=AAPL ─────────────────────────────────────
 app.get('/api/finviz', async (req, res) => {
   const { sym } = req.query;
   if (!sym || !validateSymbol(sym.toUpperCase())) return errRes(res, 400, 'Símbolo inválido');
@@ -285,8 +260,6 @@ app.get('/api/finviz', async (req, res) => {
     errRes(res, e.name === 'AbortError' ? 504 : 500, e.message);
   }
 });
-
-// ── /api/news?sym=AAPL ───────────────────────────────────────
 app.get('/api/news', async (req, res) => {
   const { sym } = req.query;
   if (!sym || !validateSymbol(sym.toUpperCase())) return errRes(res, 400, 'Símbolo inválido');
@@ -302,8 +275,6 @@ app.get('/api/news', async (req, res) => {
     errRes(res, e.name === 'AbortError' ? 504 : 500, e.message);
   }
 });
-
-// ── Health check ──────────────────────────────────────────────
 app.get('/', (req, res) => res.json({
   status:    'ok',
   service:   'Stock Analyzer Proxy',
@@ -311,13 +282,10 @@ app.get('/', (req, res) => res.json({
   env:       CONFIG.NODE_ENV,
   endpoints: ['/api/proxy','/api/indices','/api/quote','/api/candles','/api/finviz','/api/news']
 }));
-
-// ── Error handler global ──────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error('Error no manejado:', err);
   errRes(res, err.status || 500, err.message);
 });
-
 app.listen(CONFIG.PORT, () =>
   console.log(`Stock Proxy v2.0 corriendo en puerto ${CONFIG.PORT} [${CONFIG.NODE_ENV}]`)
 );
