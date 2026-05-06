@@ -253,7 +253,7 @@ app.get('/api/quote', async (req, res) => {
     const meta = result.meta || {};
     const lc = meta.regularMarketPrice || meta.chartPreviousClose;
     const pc = meta.previousClose      || meta.chartPreviousClose;
-    res.json({ lc, pch: lc && pc ? ((lc - pc) / pc) * 100 : 0, name: meta.shortName || sym });
+    res.json({ lc, pch: lc && pc ? ((lc - pc) / pc) * 100 : 0, name: meta.shortName || sym, ticker: sym.toUpperCase() });
   } catch (e) {
     errRes(res, e.name === 'AbortError' ? 504 : 500, e.message);
   }
@@ -278,7 +278,7 @@ app.get('/api/candles', async (req, res) => {
       time: t, open: q.open[i], high: q.high[i],
       low: q.low[i], close: q.close[i], volume: q.volume[i]
     })).filter(c => c.open && c.close);
-    res.json({ candles, name: meta.shortName || sym });
+    res.json({ candles, name: meta.shortName || sym, ticker: sym.toUpperCase(), range, interval });
   } catch (e) {
     errRes(res, e.name === 'AbortError' ? 504 : 500, e.message);
   }
