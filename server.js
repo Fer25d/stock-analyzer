@@ -11,7 +11,7 @@ app.set('trust proxy', 1);
 const CONFIG = {
   PORT:            process.env.PORT            || 3000,
   NODE_ENV:        process.env.NODE_ENV        || 'development',
-  CACHE_TTL:       parseInt(process.env.CACHE_TTL       || '3000'),
+  CACHE_TTL:       parseInt(process.env.CACHE_TTL       || '10000'),
   REQUEST_TIMEOUT: parseInt(process.env.REQUEST_TIMEOUT || '8000'),
 };
 
@@ -56,12 +56,17 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// Rate limiting — 200 req / 15min por IP
-app.use('/api/', rateLimit({
+// Rate limiting — solo para endpoints pesados, no para /api/indices ni /api/quote
+const heavyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
-  message: { error: 'Demasiadas solicitudes, intentá en unos minutos.' }
-}));
+  max: 500,
+  message: { error: 'Demasiadas solicitudes, intentá en unos minutos.' },
+  skip: (req) => {
+    // Eximir endpoints de alta frecuencia
+    return req.path === '/api/indices' || req.path === '/api/quote';
+  }
+});
+app.use('/api/', heavyLimiter);
 
 // ── Utilidades ───────────────────────────────────────────────
 const BH = {
